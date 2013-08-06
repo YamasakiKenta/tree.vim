@@ -6,12 +6,8 @@ let s:db = {}
 function! mitree#init()
 endfunction
 
+" {{{
 " 優先度 - 高
-let s:cmnts = { 'c' : [
-			\ { 'start' : '\/\/', 'end' : '$'   },
-			\ { 'start' : '\/\*', 'end' : '\*\/'}, 
-			\ ]}
-
 let s:pars = { 'c' : [
 			\ { 'type' : 'str'  , 'name' : ''                        , 'start' : '"'                       , 'midle' : ''                , 'end' : '"'       } , 
 			\ { 'type' : 'if'   , 'name' : ''                        , 'start' : '?'                       , 'midle' : ':'               , 'end' : ';'       } , 
@@ -33,7 +29,7 @@ let s:type = { 'c' : {
 "次の文字を一行とする
 "分割結合を行う
 let s:end_word = { 'c' : [';', '{', '^#.*', ]}
-
+" }}}
 
 " ### 
 function! s:get_data(line, rtns)
@@ -69,7 +65,7 @@ function! s:load(file, rtns) "{{{
 	let lines = readfile(a:file)
 
 	" コメントの削除
-	let lines = mitree#del#comments(s:cmnts.c, lines)
+	let lines = mitree#util#del_comments(lines)
 
 	let rtns = s:get_datas(lines, a:rtns)
 
