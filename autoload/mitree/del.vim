@@ -79,11 +79,6 @@ endfunction
 function! s:test_del_comments() "{{{
 	" ,' }, ‚Å®Œ`
 	"
-	let cmnts = [
-				\ { 'start' : '\/\/', 'end' : '$'   },
-				\ { 'start' : '\/\*', 'end' : '\*\/'}, 
-				\ ]
-
 	let datas = [
 				\ { 'in' : [cmnts, ['aaa']]                                                   ,'out' : ['aaa']            }, 
 				\ { 'in' : [cmnts, ['//aaa']]                                                 ,'out' : ['']               }, 
