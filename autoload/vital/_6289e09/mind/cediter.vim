@@ -117,12 +117,11 @@ function! s:_test_del_comments() "{{{
 				\ { 'in' : [['/*/aaa /* ccc bbb //ccc', 'test', 'aaa*/ddd//test']]     ,'out' : ['', '', 'ddd' ]   }, 
 				\ { 'in' : [['///*/aaa /* ccc bbb //ccc', 'te/*st', 'aaa*/ddd//test']] ,'out' : ['', 'te', 'ddd' ] }, 
 				\ ]
-	" let datas = datas[-1:]
 
 	call vimwork#test#main(function('s:del_comments'), datas)
 endfunction
 "}}}
-if exists('g:mitest')
+if exists('g:mitest') || 0
 	call s:_test_del_comments()
 endif
 "}}}
