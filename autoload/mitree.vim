@@ -1,158 +1,154 @@
 let s:save_cpo = &cpo
 set cpo&vim
 
-" {function} : '[{use word}]' "
-let s:db = {}
-function! mitree#init()
+function! s:sort(a,b)
+	return ( a:a.num != a:b.num ) ? ( ( a:a.num > a:b.num ) ? 1 : 0 ) : ( ( a:a.type == 'start' ) ? 0 : 1 ) 
 endfunction
-
-" data {{{
-" 優先度 - 高
-let s:pars = { 'c' : [
-			\ { 'type' : 'str'  , 'name' : ''                        , 'start' : ';'                       , 'midle' : ''                , 'end' : '.'       } , 
-			\ { 'type' : 'str'  , 'name' : ''                        , 'start' : '"'                       , 'midle' : ''                , 'end' : '"'       } , 
-			\ { 'type' : 'if'   , 'name' : ''                        , 'start' : '?'                       , 'midle' : ':'               , 'end' : ';'       } , 
-			\ { 'type' : 'func' , 'name' : ''                        , 'start' : '{'                       , 'midle' : ''                , 'end' : '}'       } , 
-			\ { 'type' : 'func' , 'name' : '\w\+\ze\s*('             , 'start' : '('                       , 'midle' : ''                , 'end' : ')'       } , 
-			\ { 'type' : 'csw'  , 'name' : '^#ifndef\s*\zs.*\ze\s*$' , 'start' : '^#ifndef\|^#if\|^#ifdef' , 'midle' : '^#else\|^~#elif' , 'end' : '^#endif' } , 
-			\ ]}
-
-" 判定方法を入れる
-let s:type = { 'c' : {
-			\ 'enum'     : [],
-			\ 'define'   : [],
-			\ 'typedef'  : [],
-			\ 'function' : [],
-			\ 'static'   : [],
-			\ 'var'      : [],
-			\ }}
-
-
-let s:pars = { 'c' : [
-			\ { 'is_lock' : 1, 'type' : 'str'  , 'func' : function(s:get_name_1) , 'start' : '"'                       , 'midle' : ''                , 'end' : '[^\\]"'  } , 
-			\ { 'is_lock' : 0, 'type' : 'if'   , 'func' : function(s:get_name_2) , 'start' : '?'                       , 'midle' : ':'               , 'end' : ';'       } , 
-			\ { 'is_lock' : 0, 'type' : 'func' , 'func' : function(s:get_name_3) , 'start' : '{'                       , 'midle' : ''                , 'end' : '}'       } , 
-			\ { 'is_lock' : 0, 'type' : 'func' , 'func' : function(s:get_name_4) , 'start' : '('                       , 'midle' : ''                , 'end' : ')'       } , 
-			\ { 'is_lock' : 0, 'type' : 'csw'  , 'func' : function(s:get_name_5) , 'start' : '^#ifndef\|^#if\|^#ifdef' , 'midle' : '^#else\|^~#elif' , 'end' : '^#endif' } , 
-			\ ]}
-
-let s:kugiri = { 'c' : '[,;]' } 
-
-function s:sget_name_1(line)
+" data - pars {{{
+function! s:get_name_0(line)
 	return {
-				\ 'name' : 'str',
+				\ 'name' : '"',
 				\ 'line' : matchstr(a:line, '"\zw.*'),
 				\ }
 endfunction
-function s:sget_name_2(line)
+function! s:get_name_5(line)
 	return {
-				\ 'name' : 'no name',
+				\ 'name' : '?',
 				\ 'line' : matchstr(a:line, '?\zs.*'),
 				\ }
 endfunction
-function s:sget_name_3(line)
+function! s:get_name_2(line)
 	return {
-				\ 'name' : matchstr(a:line, '\w\+\ze\s*{'),
+				\ 'name' : matchstr(a:line, '\w\+\ze\s*{').'{',
 				\ 'line' : matchstr(a:line, '{\s*\zs.*'),
 				\ }
 endfunction
-function s:sget_name_4(line)
+function! s:get_name_3(line)
 	return {
-				\ 'name' : matchstr(a:line, '\w\+\ze\s*('),
+				\ 'name' : matchstr(a:line, '\w\+\ze\s*(').'(',
 				\ 'line' : matchstr(a:line, '(\s*\zs.*'),
 				\ }
 endfunction
-function s:sget_name_5(line)
+function! s:get_name_4(line)
 	return {
 				\ 'name' : matchstr(a:line, '^\(#ifndef\|^#if\|^#ifdef\)\s\+\ze.*'),
 				\ 'line' : '',
 				\ }
 endfunction
-
-
-
-
+let s:pars = [
+			\ { 'is_chain': 0, 'is_lock' : 1 , 'func' : function('s:get_name_0') , 'start' : '\([^\\]\|^\)\zs"'        , 'midle' : ''                , 'end' : '\([^\\]\|^\)\zs"'  } , 
+			\ { 'is_chain': 0, 'is_lock' : 0 , 'func' : function('s:get_name_5') , 'start' : '?'                       , 'midle' : ':'               , 'end' : ';'                 } , 
+			\ { 'is_chain': 1, 'is_lock' : 0 , 'func' : function('s:get_name_2') , 'start' : '{'                       , 'midle' : ''                , 'end' : '}'                 } , 
+			\ { 'is_chain': 0, 'is_lock' : 0 , 'func' : function('s:get_name_3') , 'start' : '('                       , 'midle' : ''                , 'end' : ')'                 } , 
+			\ { 'is_chain': 0, 'is_lock' : 0 , 'func' : function('s:get_name_4') , 'start' : '^#ifndef\|^#if\|^#ifdef' , 'midle' : '^#else\|^~#elif' , 'end' : '^#endif'           } , 
+			\ ]
 " }}}
 
-let :scache_data = {}
-" ### 
-function! s:sort(a,b)
-	return a:a.num < a:b.num
-endfunction
-function! s:sort_revers(a,b)
-	return a:a.num < a:b.num
-endfunction
-
 " 再帰的に呼び出して、データを登録する
-function! s:get_data__sub_get_line_datas(line, hits) "{{{
-	" 検索済みの探索
-	let line_datas = {} " 保存用
-	let line       = a:hits.next_line.' '.a:line
-	let pars       = s:pars.c
-
+function! s:get_datas__sub_get_finds(line) "{{{
 	" 対象文字を検索する
 	let finds = []
-	for par in a:pars
+	for par in copy(s:pars)
 		for type in ['start', 'end']
-			let num = match(line, par.[type])
-			if num > -1
+			let cnt = 1
+			let nums = []
+			while(1)
+				let num = match(a:line, par[type], 0, cnt)
+				if num >= 0
+					call add(nums, num)
+					let cnt = cnt + 1
+				else
+					break
+				endif
+			endwhile
+
+			for num in nums
 				let par.type = type
-				let par.cnum = num
-				call add(finds, par)
-			endif
+				let par.num = num
+				call add(finds, copy(par))
+			endfor
 		endfor
 	endfor
 
-	 "並び替え
-	call sort(finds, s:sort)
-
-	" ヒットした順に処理する
-	" TODO: データを解析する
-	let hits = a:hits
-	for find in finds
-		if find.type == 'start'
-			" 文字列中は他の項目は、無視する
-			if !exists('hits[0].is_lock') && hits[0].is_lock
-				call insert(hits.items, find)
-				let tmp_d = call(hits[0].func, [line])
-				let par.name = tmp_d.name
-				let line     = tmp_d.line
-			endif
-		elseif find.type == 'end'
-			" 現在のデータを終了する
-			if find.end == hits.items[0].end
-				unlet hits.items[0]
-
-				"TODO: データベースに登録して削除する
-			endif
-		endif
-	endfor
-
-	" 残りの解析
-
-	" TODO: 次回持越し, 解析できるところまで解析する
-	let hits.next_line = line
-
-	return [line_datas, hits]
+	" ヒットした順に処理したい為、並び替え
+	let finds = sort(finds, function('s:sort'))
+	return finds
 endfunction
 "}}}
-
-function! s:get_data(line, hits)
-	let hits = a:hits
-	let hits = s:get_data__sub_get_line_datas(a:line, hits)
-	return [hits]
+function! s:get_datas__sub_get_items(line) "{{{
+	" TODO: 
+	let kugiri = '[,; \t]'
+	return split(a:line,  kugiri)
 endfunction
+"}}}
+function! s:get_datas__sub_main(line_data, line, func_name, middle, end, finds) "{{{
 
+	let line      = a:line
+	let line_data = a:line_data
+	let finds     = a:finds
+
+	let rtns      = []
+	let max       = len(line_data.all)
+
+	while max > line_data.lnum
+		" 検索したデータを基にリストを作成する
+		while len(finds)
+			let _find = copy(finds[0])
+			unlet finds[0]
+
+			if _find.type == 'start'
+				" 文字列中は他の項目は、無視する
+				if line_data.is_lock == 0
+					" 終了文字と同じ場合はスキップする
+					if _find.start != a:end
+						let line_data.is_lock = _find.is_lock
+						let tmp_dict          = call(_find.func, [line])
+						let name              = tmp_dict.name
+						let line              = tmp_dict.line
+
+						let [line_data, tmps] = s:get_datas__sub_main(line_data, line, name, _find.midle, _find.end, finds)
+						call add(rtns, tmps)
+					endif
+
+				endif
+			elseif _find.type == 'end'
+				if _find.end == a:end
+					let line = matchstr(line, '.\{-}\ze'.a:end)
+					call extend(rtns, s:get_datas__sub_get_items(line))
+					let func_name = len(a:func_name) ? a:func_name : '_'
+					return [line_data, { func_name : rtns}]
+				endif
+			endif
+		endwhile
+
+		" 終了条件
+		let line_data.lnum = line_data.lnum + 1
+		if line_data.lnum >= max
+			break
+		endif
+
+		" 行の更新
+		let line           = line . ' ' . line_data.all[line_data.lnum]
+		let finds          = s:get_datas__sub_get_finds(line)
+	endwhile
+
+
+	return [line_data, { a:func_name : rtns}]
+endfunction
+"}}}
 function! s:get_datas(lines) "{{{
 	" 検索
-	let hits = {
-				\ 'next_line' : '',
+	let line_data = {
+				\ 'all'     : (type(a:lines)==type([]) ? a:lines : [a:lines]),
+				\ 'lnum'    : 0,
 				\ 'is_lock' : 0,
-				\ 'items' : [],
 				\ }
-	for line in a:lines
-		let [hits] = s:get_data(a:line, hits)
-	endfor
+
+	" 初期設定
+	let line   = line_data.all[line_data.lnum]
+	let finds  = s:get_datas__sub_get_finds(line)
+
+	let rtns = s:get_datas__sub_main(line_data, line, '_', '', '', finds)
 
 	return rtns
 endfunction
@@ -161,31 +157,85 @@ endfunction
 function! s:load(file) "{{{
 	let lines = readfile(a:file)
 
-	" コメントの削除
 	let lines = mitree#util#del_comments(lines)
 
-	" 解析
-	let ana_datas = s:get_datas(lines)
+	let rtns = s:get_datas(lines)
 
-	return ana_datas
+	let @" = join(rtns, "\n")
 
+	return rtns
 endfunction
 "}}}
-
 function! mitree#load(files) "{{{
 	let files = (type(a:files)==type([])) ? a:files : [a:files]
-	let an_datas_all = {}
+
 	for file in files
-		let ana_datas = s:load(file)
-		let expand(ana_datas_all, ana_datas)
+		call s:load(file)
 	endfor
 
-	PP ana_datas
 endfunction
 "}}}
 
-let files = 'C:/Users/kenta/Dropbox/vim/mind/mitree.vim/autoload/test.c'
-call mitree#load(files)
+" let files = 'C:/Users/kenta/Dropbox/vim/mind/mitree.vim/autoload/test.c'
+" call mitree#load(files)
 
-let &cpo = s:save_cpo
-unlet s:save_cpo
+function! s:_test__get_datas__sub_get_finds() "{{{
+	call vimwork#test#main(function('s:get_datas__sub_get_finds'), [
+				\ { 'in' : ['test, test, test'], 'out' : [] } ,
+				\ { 'in' : ['()'], 'out' : [
+				\ extend(copy(s:pars[3]), {'type' : 'start', 'num' : 0}),
+				\ extend(copy(s:pars[3]), {'type' : 'end',   'num' : 1}),
+				\ ]},
+				\ { 'in' : ['()()()()()'], 'out' : [
+				\ extend(copy(s:pars[3]), {'type' : 'start', 'num' : 0}),
+				\ extend(copy(s:pars[3]), {'type' : 'end',   'num' : 1}),
+				\ extend(copy(s:pars[3]), {'type' : 'start', 'num' : 2}),
+				\ extend(copy(s:pars[3]), {'type' : 'end',   'num' : 3}),
+				\ extend(copy(s:pars[3]), {'type' : 'start', 'num' : 4}),
+				\ extend(copy(s:pars[3]), {'type' : 'end',   'num' : 5}),
+				\ extend(copy(s:pars[3]), {'type' : 'start', 'num' : 6}),
+				\ extend(copy(s:pars[3]), {'type' : 'end',   'num' : 7}),
+				\ extend(copy(s:pars[3]), {'type' : 'start', 'num' : 8}),
+				\ extend(copy(s:pars[3]), {'type' : 'end',   'num' : 9}),
+				\ ]},
+				\ { 'in' : ['{()(  )()}'], 'out' : [
+				\ extend(copy(s:pars[2]), {'type' : 'start', 'num' : 0}),
+				\ extend(copy(s:pars[3]), {'type' : 'start', 'num' : 1}),
+				\ extend(copy(s:pars[3]), {'type' : 'end',   'num' : 2}),
+				\ extend(copy(s:pars[3]), {'type' : 'start', 'num' : 3}),
+				\ extend(copy(s:pars[3]), {'type' : 'end',   'num' : 6}),
+				\ extend(copy(s:pars[3]), {'type' : 'start', 'num' : 7}),
+				\ extend(copy(s:pars[3]), {'type' : 'end',   'num' : 8}),
+				\ extend(copy(s:pars[2]), {'type' : 'end',   'num' : 9}),
+				\ ]},
+				\ { 'in' : ['"  "}'], 'out' : [
+				\ extend(copy(s:pars[0]), {'type' : 'start', 'num' : 0}),
+				\ extend(copy(s:pars[0]), {'type' : 'end'  , 'num' : 0}),
+				\ extend(copy(s:pars[0]), {'type' : 'start', 'num' : 3}),
+				\ extend(copy(s:pars[0]), {'type' : 'end',   'num' : 3}),
+				\ extend(copy(s:pars[2]), {'type' : 'end',   'num' : 4}),
+				\ ]},
+				\ ])
+endfunction
+"}}}
+
+" 最終的には、細かく調査する
+function! s:_test__get_datas() "{{{
+	call vimwork#test#main(function('s:get_datas'), [
+				\ { 'in' : [['void main(void)','{', 'int i;', '}']], 'out' : { 'key' : 1, 
+				\ 'main': {
+				\ 'args'   : [{ 'type' : 'void', 'name' : ''}],
+				\ 'member' : [{ 'type' : 'int', 'name'  : 'i'}],
+				\ }}}])
+	" endfunction
+endfunction
+"}}}
+
+" ### TEST ###
+" call s:_test__get_datas__sub_get_finds()
+call s:_test__get_datas()
+
+if exists('s:save_cpo')
+	let &cpo = s:save_cpo
+	unlet s:save_cpo
+endif
