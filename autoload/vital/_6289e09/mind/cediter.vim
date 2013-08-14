@@ -1,3 +1,4 @@
+
 let s:save_cpo = &cpo
 set cpo&vim
 
@@ -11,6 +12,7 @@ function! s:_del_comments_sub_hit_no(line, cmnts) "{{{
 
 	while run_flg == 1 && len(line)
 		let run_flg = 0
+		" echo a:cmnts
 		for cmnt in a:cmnts
 			let num = match(line, cmnt.start)
 			if num > -1
@@ -60,14 +62,13 @@ endfunction
 "}}}
 function! s:del_comments(lines,...) "{{{
 	if a:0 > 0
-		let cmnts = a:0
+		let cmnts = a:1
 	else
 		let cmnts = [
 					\ { 'start' : '\/\/', 'end' : '$'   },
 					\ { 'start' : '\/\*', 'end' : '\*\/'}, 
 					\ ]
 	endif
-
 
 	let lines   = a:lines
 	let hits    = []
@@ -81,47 +82,51 @@ endfunction
 "}}}
 
 " ### TEST ### {{{
-function! s:_func_test(func, in, out) 
-	let out = call(a:func, a:in)
-	let rtn = ( a:out == out ) 
-	if rtn
-		echo "OK    :".string(out)
-	else
-		echo "ERROR :".string(out).' -> '.string(a:out)
-	endif
-	return rtn
-endfunction
+if exists('g:yamaken_test')
+	function! s:_func_test(func, in, out) 
+		let out = call(a:func, a:in)
+		let rtn = ( a:out == out ) 
+		if rtn
+			echo "OK    :".string(out)
+		else
+			echo "ERROR :".string(out).' -> '.string(a:out)
+		endif
+		return rtn
+	endfunction
 
-function! s:_func_tests(func, datas) 
-	for data in a:datas
-		call s:func_test(a:func, data.in, data.out)
-	endfor
-endfunction
-function! s:_test_del_comments() "{{{
-	" ,' }, Ç≈êÆå`
-	"
-	let cmnts = [
-				\ { 'start' : '\/\/', 'end' : '$'   },
-				\ { 'start' : '\/\*', 'end' : '\*\/'}, 
-				\ ]
+	function! s:_func_tests(func, datas) 
+		for data in a:datas
+			call s:func_test(a:func, data.in, data.out)
+		endfor
+	endfunction
+	function! s:_test_del_comments() "{{{
+		" ,' }, Ç≈êÆå`
+		"
+		let cmnts = [
+					\ { 'start' : '\/\/', 'end' : '$'   },
+					\ { 'start' : '\/\*', 'end' : '\*\/'}, 
+					\ ]
 
-	let datas = [
-				\ { 'in' : [['aaa']]                                                   ,'out' : ['aaa']            }, 
-				\ { 'in' : [['//aaa']]                                                 ,'out' : ['']               }, 
-				\ { 'in' : [['aaa ///*aaa*/bbb']]                                      ,'out' : ['aaa ']           }, 
-				\ { 'in' : [['aaa /* ccc */ bbb']]                                     ,'out' : ['aaa  bbb']       }, 
-				\ { 'in' : [['aaa /* ccc */ bbb //ccc']]                               ,'out' : ['aaa  bbb ']      }, 
-				\ { 'in' : [['aaa /* ccc */ bbb //ccc']]                               ,'out' : ['aaa  bbb ']      }, 
-				\ { 'in' : [['//aaa /* ccc */ bbb //ccc']]                             ,'out' : ['']               }, 
-				\ { 'in' : [['/*/aaa /* ccc bbb //ccc', 'aaa*/ddd//tset']]             ,'out' : ['', 'ddd' ]       }, 
-				\ { 'in' : [['/*/aaa /* ccc bbb //ccc', 'test', 'aaa*/ddd//test']]     ,'out' : ['', '', 'ddd' ]   }, 
-				\ { 'in' : [['///*/aaa /* ccc bbb //ccc', 'te/*st', 'aaa*/ddd//test']] ,'out' : ['', 'te', 'ddd' ] }, 
-				\ ]
+		let datas = [
+					\ { 'in' : [['aaa']]                                                   ,'out' : ['aaa']            }, 
+					\ { 'in' : [['//aaa']]                                                 ,'out' : ['']               }, 
+					\ { 'in' : [['aaa ///*aaa*/bbb']]                                      ,'out' : ['aaa ']           }, 
+					\ { 'in' : [['aaa /* ccc */ bbb']]                                     ,'out' : ['aaa  bbb']       }, 
+					\ { 'in' : [['aaa /* ccc */ bbb //ccc']]                               ,'out' : ['aaa  bbb ']      }, 
+					\ { 'in' : [['aaa /* ccc */ bbb //ccc']]                               ,'out' : ['aaa  bbb ']      }, 
+					\ { 'in' : [['//aaa /* ccc */ bbb //ccc']]                             ,'out' : ['']               }, 
+					\ { 'in' : [['/*/aaa /* ccc bbb //ccc', 'aaa*/ddd//tset']]             ,'out' : ['', 'ddd' ]       }, 
+					\ { 'in' : [['/*/aaa /* ccc bbb //ccc', 'test', 'aaa*/ddd//test']]     ,'out' : ['', '', 'ddd' ]   }, 
+					\ { 'in' : [['///*/aaa /* ccc bbb //ccc', 'te/*st', 'aaa*/ddd//test']] ,'out' : ['', 'te', 'ddd' ] }, 
+					\ { 'in' : [['aaa'], cmnts]                                            ,'out' : ['aaa']            }, 
+					\ { 'in' : [['//aaa'], cmnts]                                          ,'out' : ['']               }, 
+					\ { 'in' : [['aaa ///*aaa*/bbb'], cmnts]                               ,'out' : ['aaa ']           }, 
+					\ ]
 
-	call vimwork#test#main(function('s:del_comments'), datas)
-endfunction
-"}}}
-if exists('g:mitest') || 0
+		call vimwork#test#main(function('s:del_comments'), datas)
+	endfunction
+	"}}}
+
 	call s:_test_del_comments()
 endif
 "}}}
