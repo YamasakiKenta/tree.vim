@@ -41,10 +41,9 @@ function! s:find_func_name(line) "{{{
 endfunction
 "}}}
 "
-function! s:get_datas__sub_func_data(lines, lnum, line, cnt) "{{{
+function! s:get_datas__sub_func_data(lines, lnum, cnt) "{{{
 	let cnt     = a:cnt
 	let lnum    = a:lnum
-	let line    = a:line
 	let rtns    = {}
 	let end_flg = 0
 	let ifdefs  = []
@@ -52,6 +51,7 @@ function! s:get_datas__sub_func_data(lines, lnum, line, cnt) "{{{
 	" 1 ŠÖ”“à‚Ìˆ—
 	let max  = len(a:lines)
 	while cnt > -1 && lnum < max
+		let line = a:lines[lnum]
 		" •¶šƒf[ƒ^‚Ìíœ
 		" let line = substitute(line, '".\{-}[^\\]"', '', 'g')
 
@@ -79,9 +79,6 @@ function! s:get_datas__sub_func_data(lines, lnum, line, cnt) "{{{
 		" ŠÖ”‚Ì’Ç‰Á
 		call extend(rtns, s:find_func_name(line))
 		let lnum = lnum + 1
-		if lnum < max
-			let line = a:lines[lnum]
-		endif
 	endwhile
 
 	return {
@@ -109,8 +106,8 @@ function! s:get_datas(lines) "{{{
 			echo '70 :'. func
 			let cnt = len(split(line, '{\zs')) - 1
 			echo '77 :'. cnt
-			let line = substitute(line, '.\{-}{', '' , 'g')
-			let tmp = s:get_datas__sub_func_data(lines, lnum, line, cnt)
+			let lines[lnum] = substitute(line, '.\{-}{', '' , 'g')
+			let tmp = s:get_datas__sub_func_data(lines, lnum, cnt)
 			let lnum        = tmp.lnum
 			let datas[func] = tmp.func
 
