@@ -134,8 +134,25 @@ function! mitree_simple#load(file) "{{{
 endfunction
 "}}}
 
-" ### TSET ###
+" ### TSET ### "{{{
 if exists('g:yamaken_test')
+function! s:test(func,datas) "{{{
+	for data in a:datas
+		let ans = data.out
+		let out = call(a:func, data.in)
+		if exists('data.key')
+			let out = get(out, data.key, '')
+		endif
+		if type(data.out) == type(out) && ( data.out == out ) 
+			echo "OK     :" . string(out)
+		else
+			echo "ERROR  :"
+			echo '= ans =:'.string(data.out)
+			echo '= rtn =:'.string(out)
+		endif
+	endfor
+endfunction
+"}}}
 	function! s:test__get_datas() "{{{
 		let datas = [
 					\ {'in' : [['void main(void) {', 'bbb()', '}']],                                           'out' : {'main' : {'bbb' : 1}} },
@@ -153,12 +170,13 @@ if exists('g:yamaken_test')
 					\ 'static int sum(int a, int b) {', 'MAX(a, b);', 'return a + b;', '}',
 					\ ]], 'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'if' : 1, 'ddd' : 1}, 'sum' : {'MAX' : 1}} },
 					\ ]
-		call vimwork#test#main(function('s:get_datas'), datas)
+		call s:test(function('s:get_datas'), datas)
 	endfunction "}}}
-	" call s:test__get_datas()
-	call mitree_simple#load('ignore.c')
-	echo s:cache
+	call s:test__get_datas()
+	" call mitree_simple#load('ignore.c')
+	" echo s:cache
 endif
+"}}}
 
 " ä÷êîÇ¬Ç»Ç™ÇËÇæÇØÇ≈ä«óùÇ∑ÇÈ
 if exists('s:save_cpo')
