@@ -1,7 +1,7 @@
 let s:save_cpo = &cpo
 set cpo&vim
 
-let s:cahce = {}
+let s:cache = {}
 
 function! s:ifdef_proc(line, ifdefs) "{{{
 	let ifdefs = a:ifdefs
@@ -15,8 +15,8 @@ function! s:ifdef_proc(line, ifdefs) "{{{
 		unlet  ifdefs[0]
 	else
 		if len(ifdefs)
-			if ifdefs[0].else == 0
-				let line = substitute('[{}]', '', 'g')
+			if ifdefs[0].else == 1
+				let line = substitute(line, '[{}]', '', 'g')
 			endif
 		endif
 	endif
@@ -33,7 +33,6 @@ function! s:find_func_name(line) "{{{
 	for str in tmp_list
 		let key = matchstr(str, '\w\+\ze\s*(')
 		if len(key)
-			echo '10 :'.key
 			let rtns[key] = 1
 		endif
 	endfor
@@ -50,22 +49,23 @@ function! s:get_datas__sub_func_data(lines, lnum, cnt) "{{{
 
 	" 1 ŠÖ”“à‚Ìˆ—
 	let max  = len(a:lines)
-	while cnt > -1 && lnum < max
+	while !end_flg && lnum < max
 		let line = a:lines[lnum]
 		" •¶šƒf[ƒ^‚Ìíœ
-		" let line = substitute(line, '".\{-}[^\\]"', '', 'g')
+		let line = substitute(line, '".\{-}[^\\]"', '', 'g')
 
 		" ifdef ‚Ìˆ—
-		let tmp_dict = s:ifdef_proc(line, ifdefs)
-		let line     = tmp_dict.line
-		let ifdefs   = tmp_dict.ifdefs
+		if 0
+			let tmp_dict = s:ifdef_proc(line, ifdefs)
+			let line     = tmp_dict.line
+			let ifdefs   = tmp_dict.ifdefs
+		endif
 
 		" I—¹ˆ—‚ğ—Dæ
-		let tmp_list = split(' '.line, '}\zs')
-		let cnt = cnt - len(tmp_list) + 1
-		echo ' === '.lnum. ' === '
+		let tmp_list = split(' '.line.' ', '}\zs')
+		let cnt = cnt - (len(tmp_list) - 1)
+		" echo '65:'.string(tmp_list)
 		if cnt < 0 
-			echo '27 :'. cnt
 			let end_flg = 1
 			" ŠY“–‚Ì‚©‚Á‚±‚Ü‚Å
 			" let m = '\(.\{-}}\)\{'.(-cnt-1).'}.*}'
@@ -74,10 +74,11 @@ function! s:get_datas__sub_func_data(lines, lnum, cnt) "{{{
 		endif
 
 		" ŠJnˆ—‚ÌŒvZ
-		let cnt = cnt + len(split(line, '{\zs'))
+		let cnt = cnt + (len(split(' '.line, '{\zs')) - 1)
 
 		" ŠÖ”‚Ì’Ç‰Á
 		call extend(rtns, s:find_func_name(line))
+
 		let lnum = lnum + 1
 	endwhile
 
@@ -103,9 +104,7 @@ function! s:get_datas(lines) "{{{
 		endif
 
 		if line =~ '{'
-			echo '70 :'. func
 			let cnt = len(split(line, '{\zs')) - 1
-			echo '77 :'. cnt
 			let lines[lnum] = substitute(line, '.\{-}{', '' , 'g')
 			let tmp = s:get_datas__sub_func_data(lines, lnum, cnt)
 			let lnum        = tmp.lnum
@@ -124,24 +123,42 @@ endfunction
 "}}}
 "
 function! mitree_simple#load(file) "{{{
-	let lines = readfile(a:file)
-	let lines = mitree#util#del_comments(lines)
-	let rtns = s:get_datas(lines)
-	let lines
+	let files = type(a:file) == type([]) ? a:file : [a:file]
+	echo files
+	for file in files
+		let lines = readfile(file)
+		let lines = mitree#util#del_comments(lines)
+		let rtns = s:get_datas(lines)
+		call extend(s:cache, rtns)
+	endfor
 endfunction
 "}}}
 
 " ### TSET ###
-function! s:TEST__get_datas() 
-	let datas = [
-				\ {'in' : [['void main(void) {', 'bbb()', '}']],      'out' : {'main' : {'bbb' : 1}}},
-				\ {'in' : [['void main(void) {', 'bbb(ccc())', '}']], 'out' : {'main' : {'bbb' : 1, 'ccc' : 1}}},
-				\ {'in' : [['void main(void) {', ' 1 = 1 + ( 1 + 1 )', 'bbb(ccc())', '}']], 'out' : {'main' : {'bbb' : 1, 'ccc' : 1}}},
-				\ ]
-	call vimwork#test#main(function('s:get_datas'), datas)
-endfunction
-
-call s:TEST__get_datas()
+if exists('g:yamaken_test')
+	function! s:test__get_datas() "{{{
+		let datas = [
+					\ {'in' : [['void main(void) {', 'bbb()', '}']],                                           'out' : {'main' : {'bbb' : 1}} },
+					\ {'in' : [['void main(void) {', 'bbb(ccc())', '}']],                                      'out' : {'main' : {'bbb' : 1, 'ccc' : 1}} },
+					\ {'in' : [['void main(void) {', ' 1 = 1 + ( 1 + 1 )', 'bbb(ccc())', '}']],                'out' : {'main' : {'bbb' : 1, 'ccc' : 1}} },
+					\ {'in' : [['void main(void) {', 'printf("printf(%s)", "aaa")', 'bbb(ccc())', '}']],       'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'printf' : 1, }} },
+					\ {'in' : [['void main(void) {', '#if 0', 'bbb(ccc())', '#endif', '}']],                   'out' : {'main' : {'bbb' : 1, 'ccc' : 1}} },
+					\ {'in' : [['void main(void) {', '#if 0', 'bbb(ccc())', '#else', 'ddd()', '#endif', '}']], 'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'ddd' : 1}} },
+					\ {'in' : [[
+					\ 'void main(void) {', 'if (0) {', 'bbb(ccc());', '}', '}', 
+					\ 'static int sum(int a, int b) {', 'MAX(a, b);', 'return a + b;', '}',
+					\ ]], 'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'if' : 1}, 'sum' : {'MAX' : 1}} },
+					\ {'in' : [[
+					\ 'void main(void) {', '#if 0', 'if (0) {', 'bbb(ccc());', '#else', 'if(1) {', 'ddd();', '#endif', '}', '}', 
+					\ 'static int sum(int a, int b) {', 'MAX(a, b);', 'return a + b;', '}',
+					\ ]], 'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'if' : 1, 'ddd' : 1}, 'sum' : {'MAX' : 1}} },
+					\ ]
+		call vimwork#test#main(function('s:get_datas'), datas)
+	endfunction "}}}
+	" call s:test__get_datas()
+	call mitree_simple#load('ignore.c')
+	echo s:cache
+endif
 
 " ŠÖ”‚Â‚È‚ª‚è‚¾‚¯‚ÅŠÇ—‚·‚é
 if exists('s:save_cpo')
