@@ -1,9 +1,9 @@
 let s:save_cpo = &cpo
 set cpo&vim
 
-function! mitree#command#del_comments() range
+function! tree#command#del_comments() range
 	let lines = getline(a:firstline, a:lastline)
-	let lines = mitree#util#del_comments(lines)
+	let lines = tree#util#del_comments(lines)
 	call setline(a:firstline, lines)
 endfunction
 
