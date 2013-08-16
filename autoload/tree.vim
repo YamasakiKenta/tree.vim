@@ -44,9 +44,9 @@ let s:pars = [
 			\ ]
 " }}}
 
-" Ä‹A“I‚ÉŒÄ‚Ño‚µ‚ÄAƒf[ƒ^‚ğ“o˜^‚·‚é
+" å†å¸°çš„ã«å‘¼ã³å‡ºã—ã¦ã€ãƒ‡ãƒ¼ã‚¿ã‚’ç™»éŒ²ã™ã‚‹
 function! s:get_datas__sub_get_finds(line) "{{{
-	" ‘ÎÛ•¶š‚ğŒŸõ‚·‚é
+	" å¯¾è±¡æ–‡å­—ã‚’æ¤œç´¢ã™ã‚‹
 	let finds = []
 	for par in copy(s:pars)
 		for type in ['start', 'end']
@@ -70,7 +70,7 @@ function! s:get_datas__sub_get_finds(line) "{{{
 		endfor
 	endfor
 
-	" ƒqƒbƒg‚µ‚½‡‚Éˆ—‚µ‚½‚¢ˆ×A•À‚Ñ‘Ö‚¦
+	" ãƒ’ãƒƒãƒˆã—ãŸé †ã«å‡¦ç†ã—ãŸã„ç‚ºã€ä¸¦ã³æ›¿ãˆ
 	let finds = sort(finds, function('s:sort'))
 	return finds
 endfunction
@@ -91,15 +91,15 @@ function! s:get_datas__sub_main(line_data, line, func_name, middle, end, finds) 
 	let max       = len(line_data.all)
 
 	while max > line_data.lnum
-		" ŒŸõ‚µ‚½ƒf[ƒ^‚ğŠî‚ÉƒŠƒXƒg‚ğì¬‚·‚é
+		" æ¤œç´¢ã—ãŸãƒ‡ãƒ¼ã‚¿ã‚’åŸºã«ãƒªã‚¹ãƒˆã‚’ä½œæˆã™ã‚‹
 		while len(finds)
 			let _find = copy(finds[0])
 			unlet finds[0]
 
 			if _find.type == 'start'
-				" •¶š—ñ’†‚Í‘¼‚Ì€–Ú‚ÍA–³‹‚·‚é
+				" æ–‡å­—åˆ—ä¸­ã¯ä»–ã®é …ç›®ã¯ã€ç„¡è¦–ã™ã‚‹
 				if line_data.is_lock == 0
-					" I—¹•¶š‚Æ“¯‚¶ê‡‚ÍƒXƒLƒbƒv‚·‚é
+					" çµ‚äº†æ–‡å­—ã¨åŒã˜å ´åˆã¯ã‚¹ã‚­ãƒƒãƒ—ã™ã‚‹
 					if _find.start != a:end
 						let line_data.is_lock = _find.is_lock
 						let tmp_dict          = call(_find.func, [line])
@@ -121,13 +121,13 @@ function! s:get_datas__sub_main(line_data, line, func_name, middle, end, finds) 
 			endif
 		endwhile
 
-		" I—¹ğŒ
+		" çµ‚äº†æ¡ä»¶
 		let line_data.lnum = line_data.lnum + 1
 		if line_data.lnum >= max
 			break
 		endif
 
-		" s‚ÌXV
+		" è¡Œã®æ›´æ–°
 		let line           = line . ' ' . line_data.all[line_data.lnum]
 		let finds          = s:get_datas__sub_get_finds(line)
 	endwhile
@@ -137,14 +137,14 @@ function! s:get_datas__sub_main(line_data, line, func_name, middle, end, finds) 
 endfunction
 "}}}
 function! s:get_datas(lines) "{{{
-	" ŒŸõ
+	" æ¤œç´¢
 	let line_data = {
 				\ 'all'     : (type(a:lines)==type([]) ? a:lines : [a:lines]),
 				\ 'lnum'    : 0,
 				\ 'is_lock' : 0,
 				\ }
 
-	" ‰Šúİ’è
+	" åˆæœŸè¨­å®š
 	let line   = line_data.all[line_data.lnum]
 	let finds  = s:get_datas__sub_get_finds(line)
 
@@ -219,7 +219,7 @@ function! s:_test__get_datas__sub_get_finds() "{{{
 endfunction
 "}}}
 
-" ÅI“I‚É‚ÍA×‚©‚­’²¸‚·‚é
+" æœ€çµ‚çš„ã«ã¯ã€ç´°ã‹ãèª¿æŸ»ã™ã‚‹
 function! s:_test__get_datas() "{{{
 	call vimwork#test#main(function('s:get_datas'), [
 				\ { 'in' : [['void main(void)','{', 'int i;', '}']], 'out' : { 'key' : 1, 

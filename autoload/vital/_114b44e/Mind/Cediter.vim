@@ -100,7 +100,7 @@ if exists('g:yamaken_test')
 		endfor
 	endfunction
 	function! s:_test_del_comments() "{{{
-		" ,' }, ‚Å®Œ`
+		" ,' }, ã§æ•´å½¢
 		"
 		let cmnts = [
 					\ { 'start' : '\/\/', 'end' : '$'   },

@@ -102,7 +102,7 @@ function! s:_func_tests(func, datas)
 	endfor
 endfunction
 function! s:_test_del_comments() "{{{
-	" ,' }, ‚Å®Œ`
+	" ,' }, ã§æ•´å½¢
 	"
 	let cmnts = [
 				\ { 'start' : '\/\/', 'end' : '$'   },

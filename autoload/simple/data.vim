@@ -1,7 +1,9 @@
 let s:save_cpo = &cpo
 set cpo&vim
 
-let s:cache = {}
+let s:cache_next = {}
+let s:cache_back = {}
+let s:cache_file = {}
 
 function! s:ifdef_proc(line, ifdefs) "{{{
 	let ifdefs = a:ifdefs
@@ -28,11 +30,35 @@ function! s:ifdef_proc(line, ifdefs) "{{{
 endfunction
 "}}}
 
-function! s:find_func_name(line) "{{{
+let s:func_types = {
+	\ 'c' : {
+	\ 'def_func_name'       : '\w\+\s\+\zs\w\+\ze\s*(',
+	\ 'use_func_name'       : '\w\+\ze\s*(',
+	\ 'use_func_name_split' : '(\zs',
+	\ 'moji'                : '".\{-}[^\\]"',
+	\ 'start'               : '{',
+	\ 'end'                 : '}',
+	\'cmnts' : [
+	\ { 'start' : '\/\/', 'end' : '$'   },
+	\ { 'start' : '\/\*', 'end' : '\*\/'}, 
+	\ ],
+	\ },
+	\ 'vim' : {
+	\ 'def_func_name'       : 'fu\%[nction]!\?\s\+\zs[a-zA-Z:#]\+\ze(',
+	\ 'use_func_name'       : '[a-zA-Z:#]\+\ze\s*(',
+	\ 'use_func_name_split' : '(\zs',
+	\ 'moji'                : '',
+	\ 'start'               : 'fu\%[nction]',
+	\ 'end'                 : 'endf\%[unction]',
+	\'cmnts' : [
+	\ ],
+	\ }}
+
+function! s:find_func_name(line, func_type) "{{{
 	let rtns = {}
-	let tmp_list = split(a:line, '(\zs')
+	let tmp_list = split(a:line, a:func_type.use_func_name_split)
 	for str in tmp_list
-		let key = matchstr(str, '\w\+\ze\s*(')
+		let key = matchstr(str, a:func_type.use_func_name)
 		if len(key)
 			let rtns[key] = 1
 		endif
@@ -41,78 +67,92 @@ function! s:find_func_name(line) "{{{
 endfunction
 "}}}
 
-function! s:get_datas__sub_func_data(lines, lnum, cnt) "{{{
+function! s:get_datas__sub_func_data(lines, lnum, cnt, func_type) "{{{
 	let cnt     = a:cnt
 	let lnum    = a:lnum
 	let rtns    = {}
 	let end_flg = 0
 	let ifdefs  = []
 
-	" 1 ŠÖ”“à‚Ìˆ—
+	" 1 é–¢æ•°å†…ã®å‡¦ç†
 	let max  = len(a:lines)
+	let end = a:func_type.end
+	let start = a:func_type.start
 	while !end_flg && lnum < max
 		let line = a:lines[lnum]
-		" •¶šƒf[ƒ^‚Ìíœ
-		let line = substitute(line, '".\{-}[^\\]"', '', 'g')
+		" æ–‡å­—ãƒ‡ãƒ¼ã‚¿ã®å‰Šé™¤
+		let line = substitute(line, a:func_type.moji, '', 'g')
 
-		" ifdef ‚Ìˆ—
+		" ifdef ã®å‡¦ç†
 		if 0
 			let tmp_dict = s:ifdef_proc(line, ifdefs)
 			let line     = tmp_dict.line
 			let ifdefs   = tmp_dict.ifdefs
 		endif
 
-		" I—¹ˆ—‚ğ—Dæ
-		let tmp_list = split(' '.line.' ', '}\zs')
+		" çµ‚äº†å‡¦ç†ã‚’å„ªå…ˆ
+		let tmp_list = split(' '.line.' ', end.'\zs')
 		let cnt = cnt - (len(tmp_list) - 1)
-		" echo '65:'.string(tmp_list)
 		if cnt < 0 
 			let end_flg = 1
-			" ŠY“–‚Ì‚©‚Á‚±‚Ü‚Å
-			" let m = '\(.\{-}}\)\{'.(-cnt-1).'}.*}'
-			" echo m
-			" let line = matchstr(line, m)
+			" TODO: è©²å½“ã®ã‹ã£ã“ã¾ã§
 		endif
 
-		" ŠJnˆ—‚ÌŒvZ
-		let cnt = cnt + (len(split(' '.line, '{\zs')) - 1)
+		" é–‹å§‹å‡¦ç†ã®è¨ˆç®—
+		let cnt = cnt + (len(split(' '.line, start.'\zs')) - 1)
 
-		" ŠÖ”‚Ì’Ç‰Á
-		call extend(rtns, s:find_func_name(line))
+		" é–¢æ•°ã®è¿½åŠ 
+		call extend(rtns, s:find_func_name(line, a:file_type))
 
 		let lnum = lnum + 1
 	endwhile
 
 	return {
-				\ 'func' : rtns,
+				\ 'fnc'  : rtns,
 				\ 'lnum' : lnum,
 				\ 'line' : line,
 				\ }
 endfunction
 "}}}
 
-function! s:get_datas(lines) "{{{
-	let datas = {}
-	let lnum = 0
-	let max = len(a:lines)
+function! s:get_datas(lines, ft) "{{{
+	let data_next = {}
+	let data_back = {}
+	let lnum  = 0
+	let max   = len(a:lines)
 	let lines = copy(a:lines)
+
+	let func_type = s:func_types[a:ft]
+	let word_name = func_type.def_func_name
+	let end = func_type.end
+	let start = func_type.start
 	while lnum < max
 		let line = lines[lnum]
 
-		" ŠÖ”‚ªŒ©‚Â‚©‚Á‚½ê‡
-		let tmp_str = matchstr(line, '\w\+\s\+\zs\w\+\ze\s*(')
+		" é–¢æ•°ãŒè¦‹ã¤ã‹ã£ãŸå ´åˆ
+		let tmp_str = matchstr(line, word_name)
 		if len(tmp_str)
-			let func = tmp_str
+			let fnc = tmp_str
 		endif
 
-		if line =~ '{'
-			let cnt = len(split(line, '{\zs')) - 1
-			let lines[lnum] = substitute(line, '.\{-}{', '' , 'g')
-			let tmp = s:get_datas__sub_func_data(lines, lnum, cnt)
+		if line =~ start
+			let cnt         = len(split(line, '{\zs')) - 1
+			let lines[lnum] = substitute(line, '.\{-}'.end, '' , 'g')
+			let tmp         = s:get_datas__sub_func_data(lines, lnum, cnt, func_type)
 			let lnum        = tmp.lnum
-			let datas[func] = tmp.func
 
-			" ‘O‰ñ‚Ìƒf[ƒ^‚ğ‚¿‰z‚·
+			" é·ç§»å…ˆã‚’ä¿å­˜ã™ã‚‹
+			let data_next[fnc] = tmp.fnc
+
+			" æˆ»ã‚Šå…ˆã‚’ä¿å­˜ã™ã‚‹
+			for next_func in keys(tmp.fnc)
+				if !exists('data_back[next_func]')
+					let data_back[next_func] = {}
+				endif
+				let data_back[next_func][fnc] = 1
+			endfor
+
+			" å‰å›ã®ãƒ‡ãƒ¼ã‚¿ã‚’æŒã¡è¶Šã™
 			if lnum < max 
 				let lines[lnum] = tmp.line 
 			endif
@@ -120,42 +160,74 @@ function! s:get_datas(lines) "{{{
 			let lnum = lnum + 1
 		endif
 	endwhile
-	return datas
+	return {
+				\ 'next' : data_next,
+				\ 'back' : data_back,
+				\ }
 endfunction
 "}}}
 
-function! simple#data#load(file) "{{{
+function! simple#data#load(file, ft) "{{{
 	let files = type(a:file) == type([]) ? a:file : [a:file]
-	echo files
+
+	if !exists('s:func_types[a:ft]')
+		echo 'not support '.a:ft
+		return []
+	endif
+
+	let cmnts = s:func_types[a:ft]
+
 	for file in files
 		let lines = readfile(file)
-		let lines = tree#util#del_comments(lines)
-		let rtns = s:get_datas(lines)
-		call extend(s:cache, rtns)
+		let lines = tree#util#del_comments(lines, [cmnts])
+		let data  = s:get_datas(lines, a:ft)
+
+		" ãƒ•ã‚¡ã‚¤ãƒ«å†…ã®é–¢æ•°
+		echo data
+
+		let s:cache_file[fnamemodify(a:file,"p")] = keys(data.next) " com
+
+		" å…¨ä½“ã«ç™»éŒ²
+		call extend(s:cache_next, data.next)
 	endfor
+
+	return s:cache_file[fnamemodify(a:file,"p")]
 endfunction
 "}}}
+
+function! simple#data#next(fnc)
+	return simple#conv#func_tree(s:cache_next, a:fnc)
+endfunction
+
+function! simple#data#back(fnc)
+	return simple#conv#func_tree(s:cache_back, a:fnc)
+endfunction
+
+function! simple#data#func()
+	return keys(deepcopy(s:cache_next))
+endfunction
 
 " ### TSET ### "{{{
 if exists('g:yamaken_test')
-function! s:test(func,datas) "{{{
-	for data in a:datas
-		let ans = data.out
-		let out = call(a:func, data.in)
-		if exists('data.key')
-			let out = get(out, data.key, '')
-		endif
-		if type(data.out) == type(out) && ( data.out == out ) 
-			echo "OK     :" . string(out)
-		else
-			echo "ERROR  :"
-			echo '= ans =:'.string(data.out)
-			echo '= rtn =:'.string(out)
-		endif
-	endfor
-endfunction
-"}}}
+	function! s:test(fnc,datas) "{{{
+		for data in a:datas
+			let ans = data.out
+			let out = call(a:fnc, data.in)
+			if exists('data.key')
+				let out = get(out, data.key, '')
+			endif
+			if type(data.out) == type(out) && ( data.out == out ) 
+				echo "OK     :" . string(out)
+			else
+				echo "ERROR  :"
+				echo '= ans =:'.string(data.out)
+				echo '= rtn =:'.string(out)
+			endif
+		endfor
+	endfunction
+	"}}}
 	function! s:test__get_datas() "{{{
+		" data {{{ 
 		let datas = [
 					\ {'in' : [['void main(void) {', 'bbb()', '}']],                                           'out' : {'main' : {'bbb' : 1}} },
 					\ {'in' : [['void main(void) {', 'bbb(ccc())', '}']],                                      'out' : {'main' : {'bbb' : 1, 'ccc' : 1}} },
@@ -172,15 +244,23 @@ endfunction
 					\ 'static int sum(int a, int b) {', 'MAX(a, b);', 'return a + b;', '}',
 					\ ]], 'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'if' : 1, 'ddd' : 1}, 'sum' : {'MAX' : 1}} },
 					\ ]
+		"}}}
 		call s:test(function('s:get_datas'), datas)
 	endfunction "}}}
-	call s:test__get_datas()
-	" call tree_simple#load('ignore.c')
-	" echo s:cache
+
+	let fname = "C:/Users/kenta/Dropbox/vim/mind/tree.vim/autoload/test/test.c"
+	call simple#data#load(fname, 'c')
+
+	let fname = 'C:/Users/kenta/Dropbox/vim/mind/tree.vim/autoload/unite/sources/simple_tree.vim'
+	call simple#data#load(fname, 'vim')
+
 endif
 "}}}
+"
+	let fname = 'C:/Users/kenta/Dropbox/vim/mind/tree.vim/autoload/unite/sources/simple_tree.vim'
+	call simple#data#load(fname, 'vim')
 
-" ŠÖ”‚Â‚È‚ª‚è‚¾‚¯‚ÅŠÇ—‚·‚é
+" é–¢æ•°ã¤ãªãŒã‚Šã ã‘ã§ç®¡ç†ã™ã‚‹
 if exists('s:save_cpo')
 	let &cpo = s:save_cpo
 	unlet s:save_cpo
