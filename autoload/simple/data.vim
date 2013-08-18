@@ -1,4 +1,3 @@
-let s:save_cpo = &cpo
 set cpo&vim
 
 let s:cache_next = {}
@@ -44,12 +43,12 @@ let s:func_types = {
 	\ ],
 	\ },
 	\ 'vim' : {
-	\ 'def_func_name'       : 'fu\%[nction]!\?\s\+\zs[a-zA-Z:#]\+\ze(',
-	\ 'use_func_name'       : '[a-zA-Z:#]\+\ze\s*(',
+	\ 'def_func_name'       : '\<fu\%[nction]!\?\s\+\zs[a-zA-Z:#_]\+\ze(',
+	\ 'use_func_name'       : '\<[a-zA-Z:#_]\+\ze\s*(',
 	\ 'use_func_name_split' : '(\zs',
 	\ 'moji'                : '',
-	\ 'start'               : 'fu\%[nction]',
-	\ 'end'                 : 'endf\%[unction]',
+	\ 'start'               : ')',
+	\ 'end'                 : '\<endf\%[unction]!\?\>',
 	\'cmnts' : [
 	\ ],
 	\ }}
@@ -181,7 +180,7 @@ function! simple#data#load(file, ft) "{{{
 		let lines = readfile(file)
 		let lines = tree#util#del_comments(lines, cmnts)
 
-		let data  = s:get_datas(s:func_type[a:ft], lines)
+		let data  = s:get_datas(s:func_types[a:ft], lines)
 
 		" ファイル内の関数
 		echo data
@@ -209,7 +208,7 @@ function! simple#data#func()
 endfunction
 
 " ### TSET ### "{{{
-if exists('g:yamaken_test') || 1
+if exists('g:yamaken_test') 
 	function! s:test(fnc,datas) "{{{
 		for data in a:datas
 			let ans = data.out
@@ -227,9 +226,9 @@ if exists('g:yamaken_test') || 1
 		endfor
 	endfunction
 	"}}}
-	function! s:test__get_datas() "{{{
-		" data {{{ 
-		let datas = [
+	if 1
+		" s:get_datas "{{{
+		call s:test(function('s:get_datas'), [ 
 					\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', 'bbb()', '}']],                                           'out' : {'main' : {'bbb' : 1}} },
 					\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', 'bbb(ccc())', '}']],                                      'out' : {'main' : {'bbb' : 1, 'ccc' : 1}} },
 					\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', ' 1 = 1 + ( 1 + 1 )', 'bbb(ccc())', '}']],                'out' : {'main' : {'bbb' : 1, 'ccc' : 1}} },
@@ -246,12 +245,12 @@ if exists('g:yamaken_test') || 1
 					\ 'static int sum(int a, int b) {', 'MAX(a, b);', 'return a + b;', '}',
 					\ ]], 'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'if' : 1, 'ddd' : 1}, 'sum' : {'MAX' : 1}} },
 					\
-					\ ]
+					\ {'key' : 'next', 'in' : [s:func_types.vim, ['function! s:main()', 'call s:bbb()', 'endfunction']], 'out' : {'s:main' : {'s:bbb' : 1}} },
+					\ {'key' : 'next', 'in' : [s:func_types.vim, ['function! main#aaa#bbb(a,b,c)', 'call s:bbb()', 'return aaa#bbb()', 'endfunction']], 'out' : {'main#aaa#bbb' : {'s:bbb' : 1, 'aaa#bbb' : 1}} },
+					\ ])
 		"}}}
-		call s:test(function('s:get_datas'), datas)
-	endfunction "}}}
+	endif
 
-	call s:test__get_datas()
 	" let fname = "C:/Users/kenta/Dropbox/vim/mind/tree.vim/autoload/test/test.c"
 	" call simple#data#load(fname, 'c')
 
