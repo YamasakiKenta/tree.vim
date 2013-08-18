@@ -12,7 +12,7 @@ let s:source = {
 			\ 'hooks' : {},
 			\ }
 
-function! s:source.hooks.on_init(args, context)
+function! s:source.hooks.on_init(args, context) "{{{
 	" TODO: データの更新をタイムスタンプで管理する
 	if len(a:args)
 		let a:context.source__file_name = a:arg[0]
@@ -22,8 +22,9 @@ function! s:source.hooks.on_init(args, context)
 		let a:context.source__file_type = input("file type: ", &filetype)
 	endif
 endfunction
+"}}}
 
-function! s:source.gather_candidates(args, context)
+function! s:source.gather_candidates(args, context) "{{{
 	if !exists('a:context.source__file_type') || !exists('a:context.source__file_name')
 		return {}
 	endif
@@ -38,6 +39,7 @@ function! s:source.gather_candidates(args, context)
 				\ "action__tagname" : v:val,
 				\ }')
 endfunction
+"}}}
 call add(s:sources, deepcopy(s:source))
 
 let s:source = {
@@ -46,7 +48,7 @@ let s:source = {
 			\ 'hooks' : {},
 			\ }
 
-function! s:source.hooks.on_init(args, context)
+function! s:source.hooks.on_init(args, context) "{{{
 	" TODO: データの更新をタイムスタンプで管理する
 	if len(a:args)
 		let a:context.source__file_type = a:arg[0]
@@ -56,19 +58,22 @@ function! s:source.hooks.on_init(args, context)
 		let a:context.source__func_name = input("func name: ")
 	endif
 endfunction
+"}}}
 
-function! s:conv_func_from_simple_tree(str)
+function! s:conv_func_from_simple_tree(str) "{{{
 	" ファイル名の抽出
 	return matchstr(a:str, '-|\d*:\zs\S*')
 endfunction
+"}}}
 
-function! s:source.gather_candidates(args, context)
+function! s:source.gather_candidates(args, context) "{{{
 	let datas = simple#data#next(a:context.source__func_name)
 	return map(datas, '{
 				\ "word" : v:val,
 				\ "action__tagname" : s:conv_func_from_simple_tree(v:val),
 				\ }')
 endfunction
+"}}}
 call add(s:sources, deepcopy(s:source))
 
 if exists('s:save_cpo')
