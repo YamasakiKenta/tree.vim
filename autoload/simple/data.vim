@@ -102,7 +102,7 @@ function! s:get_datas__sub_func_data(lines, lnum, cnt, func_type) "{{{
 		let cnt = cnt + (len(split(' '.line, start.'\zs')) - 1)
 
 		" 関数の追加
-		call extend(rtns, s:find_func_name(line, a:file_type))
+		call extend(rtns, s:find_func_name(line, a:func_type))
 
 		let lnum = lnum + 1
 	endwhile
@@ -115,17 +115,16 @@ function! s:get_datas__sub_func_data(lines, lnum, cnt, func_type) "{{{
 endfunction
 "}}}
 
-function! s:get_datas(lines, ft) "{{{
+function! s:get_datas(func_type, lines) "{{{
 	let data_next = {}
 	let data_back = {}
 	let lnum  = 0
 	let max   = len(a:lines)
 	let lines = copy(a:lines)
 
-	let func_type = s:func_types[a:ft]
-	let word_name = func_type.def_func_name
-	let end = func_type.end
-	let start = func_type.start
+	let word_name = a:func_type.def_func_name
+	let end       = a:func_type.end
+	let start     = a:func_type.start
 	while lnum < max
 		let line = lines[lnum]
 
@@ -137,8 +136,9 @@ function! s:get_datas(lines, ft) "{{{
 
 		if line =~ start
 			let cnt         = len(split(line, '{\zs')) - 1
-			let lines[lnum] = substitute(line, '.\{-}'.end, '' , 'g')
-			let tmp         = s:get_datas__sub_func_data(lines, lnum, cnt, func_type)
+			" 関数名を削除する
+			let lines[lnum] = substitute(line, '.\{-}'.start, '' , 'g')
+			let tmp         = s:get_datas__sub_func_data(lines, lnum, cnt, a:func_type)
 			let lnum        = tmp.lnum
 
 			" 遷移先を保存する
@@ -175,12 +175,13 @@ function! simple#data#load(file, ft) "{{{
 		return []
 	endif
 
-	let cmnts = s:func_types[a:ft]
+	let cmnts = s:func_types[a:ft].cmnts
 
 	for file in files
 		let lines = readfile(file)
-		let lines = tree#util#del_comments(lines, [cmnts])
-		let data  = s:get_datas(lines, a:ft)
+		let lines = tree#util#del_comments(lines, cmnts)
+
+		let data  = s:get_datas(s:func_type[a:ft], lines)
 
 		" ファイル内の関数
 		echo data
@@ -208,7 +209,7 @@ function! simple#data#func()
 endfunction
 
 " ### TSET ### "{{{
-if exists('g:yamaken_test')
+if exists('g:yamaken_test') || 1
 	function! s:test(fnc,datas) "{{{
 		for data in a:datas
 			let ans = data.out
@@ -229,36 +230,36 @@ if exists('g:yamaken_test')
 	function! s:test__get_datas() "{{{
 		" data {{{ 
 		let datas = [
-					\ {'in' : [['void main(void) {', 'bbb()', '}']],                                           'out' : {'main' : {'bbb' : 1}} },
-					\ {'in' : [['void main(void) {', 'bbb(ccc())', '}']],                                      'out' : {'main' : {'bbb' : 1, 'ccc' : 1}} },
-					\ {'in' : [['void main(void) {', ' 1 = 1 + ( 1 + 1 )', 'bbb(ccc())', '}']],                'out' : {'main' : {'bbb' : 1, 'ccc' : 1}} },
-					\ {'in' : [['void main(void) {', 'printf("printf(%s)", "aaa")', 'bbb(ccc())', '}']],       'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'printf' : 1, }} },
-					\ {'in' : [['void main(void) {', '#if 0', 'bbb(ccc())', '#endif', '}']],                   'out' : {'main' : {'bbb' : 1, 'ccc' : 1}} },
-					\ {'in' : [['void main(void) {', '#if 0', 'bbb(ccc())', '#else', 'ddd()', '#endif', '}']], 'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'ddd' : 1}} },
-					\ {'in' : [[
+					\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', 'bbb()', '}']],                                           'out' : {'main' : {'bbb' : 1}} },
+					\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', 'bbb(ccc())', '}']],                                      'out' : {'main' : {'bbb' : 1, 'ccc' : 1}} },
+					\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', ' 1 = 1 + ( 1 + 1 )', 'bbb(ccc())', '}']],                'out' : {'main' : {'bbb' : 1, 'ccc' : 1}} },
+					\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', 'printf("printf(%s)", "aaa")', 'bbb(ccc())', '}']],       'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'printf' : 1, }} },
+					\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', '#if 0', 'bbb(ccc())', '#endif', '}']],                   'out' : {'main' : {'bbb' : 1, 'ccc' : 1}} },
+					\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', '#if 0', 'bbb(ccc())', '#else', 'ddd()', '#endif', '}']], 'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'ddd' : 1}} },
+					\ {'key' : 'next', 'in' : [s:func_types.c, [
 					\ 'void main(void) {', 'if (0) {', 'bbb(ccc());', '}', '}', 
 					\ 'static int sum(int a, int b) {', 'MAX(a, b);', 'return a + b;', '}',
 					\ ]], 'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'if' : 1}, 'sum' : {'MAX' : 1}} },
-					\ {'in' : [[
+					\
+					\ {'key' : 'next', 'in' : [s:func_types.c, [
 					\ 'void main(void) {', '#if 0', 'if (0) {', 'bbb(ccc());', '#else', 'if(1) {', 'ddd();', '#endif', '}', '}', 
 					\ 'static int sum(int a, int b) {', 'MAX(a, b);', 'return a + b;', '}',
 					\ ]], 'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'if' : 1, 'ddd' : 1}, 'sum' : {'MAX' : 1}} },
+					\
 					\ ]
 		"}}}
 		call s:test(function('s:get_datas'), datas)
 	endfunction "}}}
 
-	let fname = "C:/Users/kenta/Dropbox/vim/mind/tree.vim/autoload/test/test.c"
-	call simple#data#load(fname, 'c')
+	call s:test__get_datas()
+	" let fname = "C:/Users/kenta/Dropbox/vim/mind/tree.vim/autoload/test/test.c"
+	" call simple#data#load(fname, 'c')
 
-	let fname = 'C:/Users/kenta/Dropbox/vim/mind/tree.vim/autoload/unite/sources/simple_tree.vim'
-	call simple#data#load(fname, 'vim')
-
+	" let fname = 'C:/Users/kenta/Dropbox/vim/mind/tree.vim/autoload/unite/sources/simple_tree.vim'
+	" call simple#data#load(fname, 'vim')
 endif
 "}}}
 "
-	let fname = 'C:/Users/kenta/Dropbox/vim/mind/tree.vim/autoload/unite/sources/simple_tree.vim'
-	call simple#data#load(fname, 'vim')
 
 " 関数つながりだけで管理する
 if exists('s:save_cpo')
