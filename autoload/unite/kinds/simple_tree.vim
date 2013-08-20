@@ -7,13 +7,18 @@ endfunction
 
 let s:kind = {
 			\ 'name'           : 'simple_tree',
-			\ 'defualt_action' : 'next',
+			\ 'default_action' : 'next',
 			\ 'action_table'   : {},
 			\ }
-let s:kind.action_table.next = {}
-function! s:kind.action_table.next.func(candidates)
-	call unite#start('simple_tree/next', candidates.action__func_name)
+let s:kind.action_table.next = {
+			\ 'is_selectable' : 0,
+			\ 'is_quit' : 0,
+			\ }
+function! s:kind.action_table.next.func(candidate)
+	call unite#start_temporary([['simple_tree/next', a:candidate.action__tagname]]) " # •Â‚¶‚È‚¢ ? 
 endfunction
+
+call unite#define_kind(s:kind)
 
 if exists('s:save_cpo')
 	let &cpo = s:save_cpo

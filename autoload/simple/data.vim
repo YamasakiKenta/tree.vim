@@ -4,15 +4,41 @@ let s:cache_next = {}
 let s:cache_back = {}
 let s:cache_file = {}
 
+" func_types "{{{
+let s:func_types = {
+			\ 'c' : {
+			\ 'def_func_name'       : '\w\+\s\+\zs\w\+\ze\s*(',
+			\ 'use_func_name'       : '\w\+\ze\s*(',
+			\ 'use_func_name_split' : '(\zs',
+			\ 'moji'                : '".\{-}[^\\]"',
+			\ 'start'               : '{',
+			\ 'end'                 : '}',
+			\'cmnts' : [
+			\ { 'start' : '\/\/', 'end' : '$'   },
+			\ { 'start' : '\/\*', 'end' : '\*\/'}, 
+			\ ],
+			\ },
+			\ 'vim' : {
+			\ 'def_func_name'       : '\<fu\%[nction]!\?\s\+\zs[a-zA-Z:#_0-9.]\+\ze(',
+			\ 'use_func_name'       : '\<[a-zA-Z:#_0-9.]\+\ze\s*(',
+			\ 'use_func_name_split' : '(\zs',
+			\ 'moji'                : '',
+			\ 'start'               : '\<fu\%[nction]!\?\s\+[a-zA-Z:#_0-9.]\+(',
+			\ 'end'                 : '\<endf\%[unction]\>',
+			\'cmnts' : [
+			\ ],
+			\ }}
+"}}}
+
 function! s:ifdef_proc(line, ifdefs) "{{{
 	let ifdefs = a:ifdefs
 	let line   = a:line
 
 	if line =~ '^#if'
 		call insert(ifdefs, {'else' : 0})
-	elseif line =~ '#else'
+	elseif line =~ '^#else'
 		let ifdefs[0].else = 1
-	elseif line =~ '#endif'
+	elseif line =~ '^#endif'
 		unlet  ifdefs[0]
 	else
 		if len(ifdefs)
@@ -29,30 +55,6 @@ function! s:ifdef_proc(line, ifdefs) "{{{
 endfunction
 "}}}
 
-let s:func_types = {
-	\ 'c' : {
-	\ 'def_func_name'       : '\w\+\s\+\zs\w\+\ze\s*(',
-	\ 'use_func_name'       : '\w\+\ze\s*(',
-	\ 'use_func_name_split' : '(\zs',
-	\ 'moji'                : '".\{-}[^\\]"',
-	\ 'start'               : '{',
-	\ 'end'                 : '}',
-	\'cmnts' : [
-	\ { 'start' : '\/\/', 'end' : '$'   },
-	\ { 'start' : '\/\*', 'end' : '\*\/'}, 
-	\ ],
-	\ },
-	\ 'vim' : {
-	\ 'def_func_name'       : '\<fu\%[nction]!\?\s\+\zs[a-zA-Z:#_]\+\ze(',
-	\ 'use_func_name'       : '\<[a-zA-Z:#_]\+\ze\s*(',
-	\ 'use_func_name_split' : '(\zs',
-	\ 'moji'                : '',
-	\ 'start'               : ')',
-	\ 'end'                 : '\<endf\%[unction]!\?\>',
-	\'cmnts' : [
-	\ ],
-	\ }}
-
 function! s:find_func_name(line, func_type) "{{{
 	let rtns = {}
 	let tmp_list = split(a:line, a:func_type.use_func_name_split)
@@ -66,8 +68,8 @@ function! s:find_func_name(line, func_type) "{{{
 endfunction
 "}}}
 
-function! s:get_datas__sub_func_data(lines, lnum, cnt, func_type) "{{{
-	let cnt     = a:cnt
+function! s:get_datas__sub_func_data(lines, lnum, func_type) "{{{
+	let cnt     = 0
 	let lnum    = a:lnum
 	let rtns    = {}
 	let end_flg = 0
@@ -77,13 +79,15 @@ function! s:get_datas__sub_func_data(lines, lnum, cnt, func_type) "{{{
 	let max  = len(a:lines)
 	let end = a:func_type.end
 	let start = a:func_type.start
+
 	while !end_flg && lnum < max
 		let line = a:lines[lnum]
 		" 文字データの削除
 		let line = substitute(line, a:func_type.moji, '', 'g')
 
 		" ifdef の処理
-		if 0
+		" TODO: c の場合のみ
+		if 1
 			let tmp_dict = s:ifdef_proc(line, ifdefs)
 			let line     = tmp_dict.line
 			let ifdefs   = tmp_dict.ifdefs
@@ -98,13 +102,17 @@ function! s:get_datas__sub_func_data(lines, lnum, cnt, func_type) "{{{
 		endif
 
 		" 開始処理の計算
-		let cnt = cnt + (len(split(' '.line, start.'\zs')) - 1)
+		let cnt = cnt + (len(split(' '.line.' ', start.'\zs')) - 1)
 
 		" 関数の追加
 		call extend(rtns, s:find_func_name(line, a:func_type))
 
-		let lnum = lnum + 1
+		if !end_flg
+			let lnum = lnum + 1
+		endif
 	endwhile
+
+	" echo '114: '.lnum.': '.line
 
 	return {
 				\ 'fnc'  : rtns,
@@ -124,6 +132,7 @@ function! s:get_datas(func_type, lines) "{{{
 	let word_name = a:func_type.def_func_name
 	let end       = a:func_type.end
 	let start     = a:func_type.start
+	" echo ' '
 	while lnum < max
 		let line = lines[lnum]
 
@@ -134,10 +143,10 @@ function! s:get_datas(func_type, lines) "{{{
 		endif
 
 		if line =~ start
-			let cnt         = len(split(line, '{\zs')) - 1
+			" echo '145: '.lnum.': '.line
 			" 関数名を削除する
 			let lines[lnum] = substitute(line, '.\{-}'.start, '' , 'g')
-			let tmp         = s:get_datas__sub_func_data(lines, lnum, cnt, a:func_type)
+			let tmp         = s:get_datas__sub_func_data(lines, lnum, a:func_type)
 			let lnum        = tmp.lnum
 
 			" 遷移先を保存する
@@ -182,25 +191,24 @@ function! simple#data#load(file, ft) "{{{
 
 		let data  = s:get_datas(s:func_types[a:ft], lines)
 
-		" ファイル内の関数
-		echo data
-
-		let s:cache_file[fnamemodify(a:file,"p")] = keys(data.next) " com
+		let s:cache_file[fnamemodify(file,"p")] = keys(data.next) " com
 
 		" 全体に登録
 		call extend(s:cache_next, data.next)
 	endfor
 
-	return s:cache_file[fnamemodify(a:file,"p")]
+	" echo s:cache_file
+
+	return s:cache_file[fnamemodify(file,"p")]
 endfunction
 "}}}
 
 function! simple#data#next(fnc)
-	return simple#conv#func_tree(s:cache_next, a:fnc)
+	return simple#conv#func(s:cache_next, a:fnc)
 endfunction
 
 function! simple#data#back(fnc)
-	return simple#conv#func_tree(s:cache_back, a:fnc)
+	return simple#conv#func(s:cache_back, a:fnc)
 endfunction
 
 function! simple#data#func()
@@ -208,7 +216,7 @@ function! simple#data#func()
 endfunction
 
 " ### TSET ### "{{{
-if exists('g:yamaken_test') 
+if exists('g:yamaken_test') || 0
 	function! s:test(fnc,datas) "{{{
 		for data in a:datas
 			let ans = data.out
@@ -226,39 +234,35 @@ if exists('g:yamaken_test')
 		endfor
 	endfunction
 	"}}}
-	if 1
-		" s:get_datas "{{{
-		call s:test(function('s:get_datas'), [ 
-					\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', 'bbb()', '}']],                                           'out' : {'main' : {'bbb' : 1}} },
-					\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', 'bbb(ccc())', '}']],                                      'out' : {'main' : {'bbb' : 1, 'ccc' : 1}} },
-					\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', ' 1 = 1 + ( 1 + 1 )', 'bbb(ccc())', '}']],                'out' : {'main' : {'bbb' : 1, 'ccc' : 1}} },
-					\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', 'printf("printf(%s)", "aaa")', 'bbb(ccc())', '}']],       'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'printf' : 1, }} },
-					\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', '#if 0', 'bbb(ccc())', '#endif', '}']],                   'out' : {'main' : {'bbb' : 1, 'ccc' : 1}} },
-					\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', '#if 0', 'bbb(ccc())', '#else', 'ddd()', '#endif', '}']], 'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'ddd' : 1}} },
-					\ {'key' : 'next', 'in' : [s:func_types.c, [
-					\ 'void main(void) {', 'if (0) {', 'bbb(ccc());', '}', '}', 
-					\ 'static int sum(int a, int b) {', 'MAX(a, b);', 'return a + b;', '}',
-					\ ]], 'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'if' : 1}, 'sum' : {'MAX' : 1}} },
-					\
-					\ {'key' : 'next', 'in' : [s:func_types.c, [
-					\ 'void main(void) {', '#if 0', 'if (0) {', 'bbb(ccc());', '#else', 'if(1) {', 'ddd();', '#endif', '}', '}', 
-					\ 'static int sum(int a, int b) {', 'MAX(a, b);', 'return a + b;', '}',
-					\ ]], 'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'if' : 1, 'ddd' : 1}, 'sum' : {'MAX' : 1}} },
-					\
-					\ {'key' : 'next', 'in' : [s:func_types.vim, ['function! s:main()', 'call s:bbb()', 'endfunction']], 'out' : {'s:main' : {'s:bbb' : 1}} },
-					\ {'key' : 'next', 'in' : [s:func_types.vim, ['function! main#aaa#bbb(a,b,c)', 'call s:bbb()', 'return aaa#bbb()', 'endfunction']], 'out' : {'main#aaa#bbb' : {'s:bbb' : 1, 'aaa#bbb' : 1}} },
-					\ ])
-		"}}}
-	endif
+	let datas = [
+				\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', 'bbb()', '}']],                                           'out' : {'main' : {'bbb' : 1}} },
+				\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', 'bbb(ccc())', '}']],                                      'out' : {'main' : {'bbb' : 1, 'ccc' : 1}} },
+				\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', ' 1 = 1 + ( 1 + 1 )', 'bbb(ccc())', '}']],                'out' : {'main' : {'bbb' : 1, 'ccc' : 1}} },
+				\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', 'printf("printf(%s)", "aaa")', 'bbb(ccc())', '}']],       'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'printf' : 1, }} },
+				\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', '#if 0', 'bbb(ccc())', '#endif', '}']],                   'out' : {'main' : {'bbb' : 1, 'ccc' : 1}} },
+				\ {'key' : 'next', 'in' : [s:func_types.c, ['void main(void) {', '#if 0', 'bbb(ccc())', '#else', 'ddd()', '#endif', '}']], 'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'ddd' : 1}} },
+				\ {'key' : 'next', 'in' : [s:func_types.c, [
+				\ 'void main(void) {', 'if (0) {', 'bbb(ccc());', '}', '}', 
+				\ 'static int sum(int a, int b) {', 'MAX(a, b);', 'return a + b;', '}',
+				\ ]], 'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'if' : 1}, 'sum' : {'MAX' : 1}} },
+				\
+				\ {'key' : 'next', 'in' : [s:func_types.c, [
+				\ 'void main(void) {', '#if 0', 'if (0) {', 'bbb(ccc());', '#else', 'if(1) {', 'ddd();', '#endif', '}', '}', 
+				\ 'static int sum(int a, int b) {', 'MAX(a, b);', 'return a + b;', '}',
+				\ ]], 'out' : {'main' : {'bbb' : 1, 'ccc' : 1, 'if' : 1, 'ddd' : 1}, 'sum' : {'MAX' : 1}} },
+				\
+				\ {'key' : 'next', 'in' : [s:func_types.vim, ['function! s:main()', 'call s:bbb()', 'endfunction']], 'out' : {'s:main' : {'s:bbb' : 1}} },
+				\ {'key' : 'next', 'in' : [s:func_types.vim, ['function! main#aaa#bbb(a,b,c)', 'call s:bbb()', 'return aaa#bbb()', 'endfunction']], 'out' : {'main#aaa#bbb' : {'s:bbb' : 1, 'aaa#bbb' : 1}} },
+				\
+				\ {'key' : 'next', 'in' : [s:func_types.vim, [
+				\ 'function! main#aaa#bbb(a,b,c)', 'call s:bbb()', 'return aaa#bbb()', 'endfunction',
+				\ 'function! main#aaa#bbb2(a,b,c)', 'call s:bbb()', 'return aaa#bbb()', 'endfunction',
+				\ ]], 'out' : {'main#aaa#bbb' : {'s:bbb' : 1, 'aaa#bbb' : 1}, 'main#aaa#bbb2' : {'s:bbb' : 1, 'aaa#bbb' : 1}} },
+				\ ]
 
-	" let fname = "C:/Users/kenta/Dropbox/vim/mind/tree.vim/autoload/test/test.c"
-	" call simple#data#load(fname, 'c')
-
-	" let fname = 'C:/Users/kenta/Dropbox/vim/mind/tree.vim/autoload/unite/sources/simple_tree.vim'
-	" call simple#data#load(fname, 'vim')
+	call s:test(function('s:get_datas'), datas)
 endif
 "}}}
-"
 
 " 関数つながりだけで管理する
 if exists('s:save_cpo')
