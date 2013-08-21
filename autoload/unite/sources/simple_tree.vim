@@ -60,7 +60,6 @@ endfunction
 "}}}
 function! s:source.gather_candidates(args, context) "{{{
 	let dict = simple#data#next(a:context.source__func_name)
-	echo dict
 	let datas = simple#tree#make(dict)
 
 	return map(datas, '{
