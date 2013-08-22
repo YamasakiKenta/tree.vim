@@ -40,13 +40,14 @@ endfunction
 call add(s:sources, deepcopy(s:source))
 
 let s:source = {
-			\ 'name'         : 'simple_tree/next',
-			\ 'default_kind' : 'jump_list',
+			\ 'name'           : 'simple_tree/next',
+			\ 'default_kind'   : 'simple_tree',
+			\ 'default_action' : 'jump',
 			\ 'hooks' : {},
 			\ }
 function! s:conv_func_from_simple_tree(str) "{{{
 	" ファイル名の抽出
-	return matchstr(a:str, '-|\d*:\zs\S*')
+	return matchstr(a:str, '|\d*:- \zs\S*')
 endfunction
 "}}}
 function! s:source.hooks.on_init(args, context) "{{{
