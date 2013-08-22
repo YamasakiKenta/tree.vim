@@ -4,15 +4,14 @@ set cpo&vim
 function! s:get_tree(func)
 	let rtn_dict = {}
 
-	" ñ≥å¿ÉãÅ[Évñhé~
+	if !exists('s:dict[a:func]')
+		return { '???' : {} }
+	endif
+
 	if exists('s:cache[a:func]') 
 		return { '...' : {} }
 	else
 		let s:cache[a:func] = 'start'
-	endif
-
-	if !exists('s:dict[a:func]')
-		return { '???' : {} }
 	endif
 
 	for key in keys(s:dict[a:func])
