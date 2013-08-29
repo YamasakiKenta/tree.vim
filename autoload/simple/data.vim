@@ -132,6 +132,7 @@ function! s:get_datas(func_type, lines) "{{{
 	let word_name = a:func_type.def_func_name
 	let end       = a:func_type.end
 	let start     = a:func_type.start
+	let fnc       = ''
 	" echo ' '
 	while lnum < max
 		let line = lines[lnum]
@@ -142,7 +143,7 @@ function! s:get_datas(func_type, lines) "{{{
 			let fnc = tmp_str
 		endif
 
-		if line =~ start
+		if line =~ start && len(fnc)
 			" echo '145: '.lnum.': '.line
 			" 関数名を削除する
 			let lines[lnum] = substitute(line, '.\{-}'.start, '' , 'g')
@@ -164,6 +165,9 @@ function! s:get_datas(func_type, lines) "{{{
 			if lnum < max 
 				let lines[lnum] = tmp.line 
 			endif
+
+			" reset 
+			let fnc = ''
 		else
 			let lnum = lnum + 1
 		endif
